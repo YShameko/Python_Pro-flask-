@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Items list</title>
+</head>
+<body>
+<table>
+  <tr>
+    <th>Item name</th>
+    <th>Description</th>
+    <th>Price (per hour)</th>
+  </tr>
+
+  {% for one_item in items() %}
+     <tr>
+      <td>{{one_item.name}}</td>
+      <td>{{one_item['description']}}</td>
+      <td>{{one_item.price_hour}}</td>
+    </tr>
+  {% endfor %}
+</table>
+
+</body>
+</html>
