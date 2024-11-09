@@ -31,15 +31,14 @@ def login():
         with DB_local('db.db') as db_cur:
             db_cur.execute('SELECT * FROM users WHERE login = ? AND password = ?',
                            (request.form.get('login'),))
-        user_id = db_cur.fetchall()[0][0]
-        if user:
-            # do something
+            user_id = db_cur.fetchall()[0][0]
+        if user: # do something
         else:
             return render_template('/login')
         session['username'] = request.form['username']
         return 'POST'
-    else:
-        return 'GET'
+    if request.method == 'GET':
+        return render_template('login.html')
 
 @app.route('/register', methods =  ['GET', 'POST'])
 def register():
