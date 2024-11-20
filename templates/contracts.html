@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<table>
+  <tr>
+    <th> # </th>
+    <th>Starts from</th>
+    <th>till</th>
+  </tr>
+
+  {% for line in params %}
+     <tr>
+      <td>{{line.contract_num}}</td>
+      <td>{{line['start_date']}}</td>
+      <td>{{line.end_date}}</td>
+    </tr>
+  {% endfor %}
+</table>
+</body>
+</html>

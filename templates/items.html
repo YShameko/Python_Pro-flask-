@@ -12,11 +12,11 @@
     <th>Price (per hour)</th>
   </tr>
 
-  {% for one_item in items() %}
+  {% for each_item in items %}
      <tr>
-      <td>{{one_item.name}}</td>
-      <td>{{one_item['description']}}</td>
-      <td>{{one_item.price_hour}}</td>
+      <td>{{each_item.name}}</td>
+      <td>{{each_item['description']}}</td>
+      <td>{{each_item.price_hour}}</td>
     </tr>
   {% endfor %}
 </table>

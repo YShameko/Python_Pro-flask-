@@ -8,7 +8,15 @@
 Hello, {{full_name}}!
 
   <form method="post" action="/items">
-
+    Item name: <input type="text" name="name" id="name"><br/>
+    Photo URL: <input type="url" name="photo" id="photo"><br/>
+    Description: <input type="text" name="description" id="description"><br/>
+    Price per hour: <input type="number" name="price_hour" id="price_hour"><br/>
+    Price per day: <input type="number" name="price_day" id="price_day"><br/>
+    Price per week: <input type="number" name="price_week" id="price_week"><br/>
+    Price per month: <input type="number" name="price_month" id="price_month"><br/>
+    <br/>
+    <input type="submit" value="Add this item">
   </form>
 </body>
 </html>

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<table>
+  <tr>
+    <th>Full name</th>
+    <th>Contacts</th>
+    <th>Photo</th>
+  </tr>
+
+  {% for line in params %}
+     <tr>
+      <td>{{line.full_name}}</td>
+      <td>{{line['contacts']}}</td>
+      <td>{{line.photo}}</td>
+    </tr>
+  {% endfor %}
+</table>
+</body>
+</html>
