@@ -17,6 +17,15 @@
     <td>{{item.price_hour}}</td>
   </tr>
 </table>
+<form action="/contracts" method="post">
+  <input type="date" name="start_date">
+  <input type="date" name="end_date">
+  <input type="hidden" name="item_id" value=" {{item_id}} ">
+  <input type="submit">
+</form>
 
+<form action="/items/{{item_id}}/delete" method="post">
+
+</form>
 </body>
 </html>

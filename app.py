@@ -1,3 +1,5 @@
+from functools import wraps
+
 from flask import Flask, request, render_template, redirect, session
 import sqlite3
 app = Flask(__name__)
@@ -20,6 +22,14 @@ class DB_local(object):
         self.con.commit()
         self.con.close()
 
+def login_required(func):
+    @wraps(func)
+    def wrapped(*args, **kwargs):
+        if session.get("user_id") is None:
+            return redirect("/login")
+        return func(*args, **kwargs)
+    return wrapped
+
 @app.route('/')
 def hello_world():  # put application's code here
     return '<p>This is a test project</p>'
@@ -27,13 +37,18 @@ def hello_world():  # put application's code here
 def login():
     if request.method == 'POST':
         with DB_local('db.db') as db_cur:
-            db_cur.execute('SELECT * FROM user WHERE login = ? AND password = ? ', (request.form.get('login'),request.form.get('password')))
-            user_id = db_cur.fetchall()[0]
-        #if user_id: # do something
-        #else:
-        #    return render_template('/login')
+            db_cur.execute('SELECT * FROM user WHERE login = ? AND password = ? ',
+                           (request.form.get('login'),request.form.get('password')))
+            user_id = db_cur.fetchone()
+        if user_id:
+            session['user_id'] = user_id['id']
+            session['user_login'] = user_id['login']
+            session['user_name'] = user_id['full_name']
+        else:
+            return redirect('/login')
         session['username'] = request.form['login']
         return 'Login: POST'
+
     if request.method == 'GET':
         return render_template('login.html')
 
@@ -56,21 +71,18 @@ def register():
         return redirect('/login')
 
 @app.route('/logout', methods = ['GET', 'POST', 'DELETE'])
+@login_required
 def logout():
     session.pop('user_id', None)
-    return redirect('/')
-    if request.method == 'POST':
-        return 'POST'
-    if request.method == 'GET':
-        return '<p>You have been logged out</p>'
-    if request.method == "DELETE":
-        return 'DELETE'
+    session.pop('user_login', None)
+    session.pop('user_name', None)
+    return redirect('/login')
 
 @app.route('/profile', methods = ['GET', 'PUT'])
+@login_required
 def profile():
-    #if session.get('user_id') is None:
-    #    return f'You're logged-in as {session["user_id"]}'
-    #return 'You are not logged in'
+    if session.get('user_id') is None:
+        return redirect('/login')
 
     if request.method == 'PUT':
         with DB_local('db.db') as db_cur:
@@ -78,8 +90,11 @@ def profile():
         return "PUT"
     if request.method == 'GET':
         with DB_local('db.db') as db_cur:
-            db_cur.execute('SELECT * FROM users WHERE login = ? AND password = ?',)
-        return 'GET'
+            db_cur.execute('SELECT full_name FROM user WHERE id = ?',
+                           (session["user_id"],))
+            full_name = db_cur.fetchone()['full_name']
+        return render_template('user.html', full_name=full_name)
+
 #@app.route('/profile/<user_id>', methods = ['GET', 'PUT', 'PATCH', 'DELETE'])
 # /profile (/user, /me) [GET, PUT(PATCH), DELETE]
 #      what shall we do with /me ?
@@ -94,14 +109,15 @@ def profile(user_id):
         return 'DELETE'
 
 @app.route('/profile/favourites', methods = ['GET', 'PUT', 'PATCH', 'DELETE'])
+@login_required
 def favourites():
     if request.method == 'GET':
         with DB_local('db.db') as db_cur:
-            exec_param = '' # put here current user_id later
-            db_cur.execute('''SELECT * FROM favourites JOIN item ON favourites.item = item.id 
+             db_cur.execute('''SELECT * FROM favourites JOIN item ON favourites.item = item.id 
                                 WHERE favourites.user = ?''',
-                           exec_param)
-            items = db_cur.fetchall()
+                           (session["user_id"],)
+                            )
+             items = db_cur.fetchall()
         return render_template('items.html', items=items)
 
     if request.method == 'PUT':
@@ -114,11 +130,13 @@ def favourites():
         return 'DELETE'
 
 @app.route('/profile/favourites/<favourite_id>', methods = ['DELETE'])
+@login_required
 def favourite(favourite_id):
     if request.method == "DELETE":
         return 'DELETE'
 
 @app.route('/profile/search_history', methods=['GET', 'DELETE'])
+@login_required
 def search_history():
     if request.method == 'GET':
         with DB_local('db.db') as db_cur:
@@ -133,11 +151,17 @@ def search_history():
 @app.route('/items', methods = ['GET', 'POST'])
 def items():
     if request.method == 'POST':
+        if session.get('user_id') is None:
+            return redirect('/login')
+
         with DB_local('db.db') as db_cur:
+            user_login = session['user_login']
+            user_id = session['user_id']
             db_cur.execute('''INSERT INTO item 
             (photo, name, description, price_hour, price_day, price_week, price_month, owner)
             VALUES(:photo, :name, :description, :price_hour, :price_day, :price_week, :price_month, :owner )''', request.form)
         return redirect('/items')
+
     if request.method == 'GET':
         with DB_local('db.db') as db_cur:
             db_cur.execute('SELECT * FROM item')
@@ -151,14 +175,20 @@ def item(item_id):
         with DB_local('db.db') as db_cur:
             db_cur.execute('SELECT * FROM item WHERE id = ?', (item_id,))
             our_item = db_cur.fetchone()
-        return render_template('items.html', items=our_item)
+        return render_template('items.html', items=our_item, photo=our_item.photo,
+                               )
+
     if request.method == 'PUT':
         return 'PUT'
+
     if request.method == 'DELETE':
+        if session.get('user_id') is None:
+            return redirect('/login')
         return 'DELETE'
 
 
 @app.route('/leasers', methods = ['GET'])
+@login_required
 def leasers():
     if request.method == 'GET':
         with DB_local('db.db') as db_cur:
@@ -170,14 +200,29 @@ def leasers():
 
 
 @app.route('/leasers/<leaser_id>', methods = ['GET'])
+@login_required
 def leaser(leaser_id):
     if request.method == 'GET':
         return 'GET'
 
 @app.route('/contracts', methods = ['GET', 'POST'])
+@login_required
 def contracts():
     if request.method == 'POST':
+        with DB_local('db.db') as db_cur:
+            item = request.form['item']
+            db_cur.execute('select * from item where id = ?', (item,))
+            leaser = db_cur.fetchone()['owner']
+            taker = session['user_id']
+            status = 'pending'
+            query = '''INSERT INTO contract 
+                    (text, start_date, end_date, contract_num, status, leaser, taker, item)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)'''
+            query_args = (request.form['text'], request.form['start_date'], request.form['end_date'],
+                          status, taker, leaser, item)
+            db_cur.execute(query, query_args)
         return 'POST'
+
     if request.method == 'GET':
         with DB_local('db.db') as db_cur:
             db_cur.execute('''SELECT * FROM contract ''')
@@ -186,6 +231,7 @@ def contracts():
 
 
 @app.route('/contracts/<contract_id>', methods = ['GET', 'PUT', 'PATCH'])
+@login_required
 def contract(contract_id):
     if request.method == 'GET':
         return 'GET'
@@ -202,6 +248,7 @@ def search():
         return 'GET'
 
 @app.route('/complain', methods = ['POST'])
+@login_required
 def complain():
     if request.method == 'POST':
         return 'POST'
