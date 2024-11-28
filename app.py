@@ -11,7 +11,7 @@ def dict_factory(cursor, row):
         d[col[0]] = row[idx]
     return d
 
-class DB_local(object):
+class DbLocal(object):
     def __init__(self, file_name):
         self.con = sqlite3.connect(file_name)
         self.con.row_factory = dict_factory
@@ -21,6 +21,42 @@ class DB_local(object):
     def __exit__(self, type, value, traceback):
         self.con.commit()
         self.con.close()
+
+class DbHandler(object):
+    db_file = 'db.db'
+    def select(self, table_name, filter_dict=None, join_table=None, join_conditions=None):
+        if filter_dict is None:
+            filter_dict = {}
+        with DbLocal(self.db_file) as db_cur:
+            query = f'SELECT * FROM {table_name} '
+
+            if join_table is not None:
+                query += f'JOIN {join_table} as right_table ON '
+                join_conditions_list = []
+                for left_field, right_field in join_conditions.items():
+                    join_conditions_list.append(f'{table_name}.{left_field}=right_table.{right_field}')
+                query += ' AND '.join(join_conditions_list)
+
+            if filter_dict:
+                query += f' WHERE '
+                join_items = []
+                for key, value in filter_dict.items():
+                    join_items.append(f' {key} = ?')
+                query += ' AND '.join(join_items)
+
+            db_cur.execute(query, tuple(value for value in filter_dict.values()))
+            return db_cur.fetchall()
+
+    def insert(self, table_name, data_dict):
+        with (DbLocal(self.db_file) as db_cur):
+            query = f'INSERT INTO {table_name} ('
+            query += ','.join(data_dict.keys())
+            query += ') VALUES ('
+            query += ','.join([f':{itm}' for itm in data_dict.keys()])
+            query += ')'
+            db_cur.execute(query, tuple(data_dict.values()))
+
+db_connector = DbHandler()
 
 def login_required(func):
     @wraps(func)
@@ -36,18 +72,15 @@ def hello_world():  # put application's code here
 @app.route('/login', methods = ['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        with DB_local('db.db') as db_cur:
-            db_cur.execute('SELECT * FROM user WHERE login = ? AND password = ? ',
-                           (request.form.get('login'),request.form.get('password')))
-            user_id = db_cur.fetchone()
+        user_id = db_connector.select('user', {'login':request.form.get('login'),
+                                                                    'password':request.form.get('password')})
         if user_id:
-            session['user_id'] = user_id['id']
-            session['user_login'] = user_id['login']
-            session['user_name'] = user_id['full_name']
+            session['user_id'] = user_id[0]['id']
+            session['user_login'] = user_id[0]['login']
+            session['user_name'] = user_id[0]['full_name']
         else:
             return redirect('/login')
-        session['username'] = request.form['login']
-        return 'Login: POST'
+        return 'You are logged in as: <b>' + session['user_login']+'</b>'
 
     if request.method == 'GET':
         return render_template('login.html')
@@ -58,16 +91,8 @@ def register():
         return render_template("register.html")
 
     if request.method == 'POST':
-        with DB_local('db.db') as db_cur:
-            form_data = request.form
-            db_cur.execute('''INSERT INTO user 
-                            (login, password, ipn, full_name, contacts, photo, passport)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)''',
-                           (
-                               form_data['login'], form_data['password'], form_data['ipn'], form_data['full_name'],
-                           form_data['contacts'], form_data['photo'], form_data['passport']
-                                    )
-                           )
+        form_data = request.form
+        db_connector.insert('user', form_data)
         return redirect('/login')
 
 @app.route('/logout', methods = ['GET', 'POST', 'DELETE'])
@@ -81,18 +106,13 @@ def logout():
 @app.route('/profile', methods = ['GET', 'PUT'])
 @login_required
 def profile():
-    if session.get('user_id') is None:
-        return redirect('/login')
-
     if request.method == 'PUT':
-        with DB_local('db.db') as db_cur:
+        with DbLocal('db.db') as db_cur:
             pass
         return "PUT"
+
     if request.method == 'GET':
-        with DB_local('db.db') as db_cur:
-            db_cur.execute('SELECT full_name FROM user WHERE id = ?',
-                           (session["user_id"],))
-            full_name = db_cur.fetchone()['full_name']
+        full_name = db_connector.select('user', {'id':session["user_id"]})[0]['full_name']
         return render_template('user.html', full_name=full_name)
 
 #@app.route('/profile/<user_id>', methods = ['GET', 'PUT', 'PATCH', 'DELETE'])
@@ -112,12 +132,14 @@ def profile(user_id):
 @login_required
 def favourites():
     if request.method == 'GET':
-        with DB_local('db.db') as db_cur:
-             db_cur.execute('''SELECT * FROM favourites JOIN item ON favourites.item = item.id 
-                                WHERE favourites.user = ?''',
-                           (session["user_id"],)
-                            )
-             items = db_cur.fetchall()
+        items = db_connector.select('favourites', {'user':session["user_id"]},
+                                    'item', {'item':'id'})
+        # with DbLocal('db.db') as db_cur:
+        #      db_cur.execute('''SELECT * FROM favourites JOIN item ON favourites.item = item.id
+        #                         WHERE favourites.user = ?''',
+        #                    (session["user_id"],)
+        #                     )
+        #      items = db_cur.fetchall()
         return render_template('items.html', items=items)
 
     if request.method == 'PUT':
@@ -139,12 +161,8 @@ def favourite(favourite_id):
 @login_required
 def search_history():
     if request.method == 'GET':
-        with DB_local('db.db') as db_cur:
-            exec_param = '' # put some 'current user' id here later
-            db_cur.execute('''SELECT * FROM search_history WHERE favourites.user = ?''',
-                           exec_param)
-            search_hist = db_cur.fetchall()
-        return render_template('user.html', lines=search_hist)
+        search_list = db_connector.select('search_history', {'user':session["user_id"]})
+        return render_template('user.html', lines=search_list)
     if request.method == "DELETE":
         return 'DELETE'
 
@@ -154,29 +172,21 @@ def items():
         if session.get('user_id') is None:
             return redirect('/login')
 
-        with DB_local('db.db') as db_cur:
-            user_login = session['user_login']
-            user_id = session['user_id']
-            db_cur.execute('''INSERT INTO item 
-            (photo, name, description, price_hour, price_day, price_week, price_month, owner)
-            VALUES(:photo, :name, :description, :price_hour, :price_day, :price_week, :price_month, :owner )''', request.form)
+        query_args = dict(request.form)
+        query_args["owner"] = session["user_id"]
+        db_connector.insert('item', query_args)
         return redirect('/items')
 
     if request.method == 'GET':
-        with DB_local('db.db') as db_cur:
-            db_cur.execute('SELECT * FROM item')
-            items = db_cur.fetchall()
-        return render_template('items.html', items=items)
+        items_to_show = db_connector.select('item')
+        return render_template('items.html', items=items_to_show)
 
 
 @app.route('/items/<item_id>', methods = ['GET', 'PUT', 'DELETE'])
 def item(item_id):
     if request.method == 'GET':
-        with DB_local('db.db') as db_cur:
-            db_cur.execute('SELECT * FROM item WHERE id = ?', (item_id,))
-            our_item = db_cur.fetchone()
-        return render_template('items.html', items=our_item, photo=our_item.photo,
-                               )
+        our_item = db_connector.select('item', {'id':item_id})[0]
+        return render_template('items.html', items=our_item)
 
     if request.method == 'PUT':
         return 'PUT'
@@ -191,11 +201,7 @@ def item(item_id):
 @login_required
 def leasers():
     if request.method == 'GET':
-        with DB_local('db.db') as db_cur:
-            db_cur.execute('''SELECT user.full_name, user.contacts, user.photo
-                            FROM contract JOIN user ON contract.leaser = user.id
-                            ''')
-            leasers_list = db_cur.fetchall()
+        leasers_list = db_connector.select('contract', None, 'user', {'leaser':'id'})
         return render_template('leasers.html', params=leasers_list)
 
 
@@ -209,25 +215,20 @@ def leaser(leaser_id):
 @login_required
 def contracts():
     if request.method == 'POST':
-        with DB_local('db.db') as db_cur:
-            item = request.form['item']
-            db_cur.execute('select * from item where id = ?', (item,))
-            leaser = db_cur.fetchone()['owner']
-            taker = session['user_id']
-            status = 'pending'
-            query = '''INSERT INTO contract 
-                    (text, start_date, end_date, contract_num, status, leaser, taker, item)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)'''
-            query_args = (request.form['text'], request.form['start_date'], request.form['end_date'],
-                          status, taker, leaser, item)
-            db_cur.execute(query, query_args)
+        item = request.form['item']
+        leaser = db_connector.select('item', {'id':item})[0]['owner']
+        taker = session['user_id']
+        status = 'pending'
+        contract_num = request.form['contract_num']
+        query_args = {'text':request.form['text'], 'start_date':request.form['start_date'], 'end_date':request.form['end_date'],
+                            'status':status, 'taker':taker, 'leaser':leaser, 'item':item, 'contract_num':contract_num}
+
+        db_connector.insert('contract', query_args)
         return 'POST'
 
     if request.method == 'GET':
-        with DB_local('db.db') as db_cur:
-            db_cur.execute('''SELECT * FROM contract ''')
-            contracts_list = db_cur.fetchall()
-        return render_template('contracts.html', params=contracts_list)
+        contract_list = db_connector.select('contract')
+        return render_template('contracts.html', params=contract_list)
 
 
 @app.route('/contracts/<contract_id>', methods = ['GET', 'PUT', 'PATCH'])
