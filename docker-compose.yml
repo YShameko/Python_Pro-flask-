@@ -1,0 +1,10 @@
+services:
+  web_app:
+    build: .
+      command: python app.py
+      ports:
+        -5000:5000
+      enviroment:
+        -
+
+  rabbitmq:

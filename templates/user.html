@@ -5,8 +5,8 @@
     <title>User's profile</title>
 </head>
 <body>
-Hello, {{full_name}}!
-
+<b>Hello, {{full_name}}! </b><br>
+<p>You can add your new item below:</p>
   <form method="post" action="/items">
     Item name: <input type="text" name="name" id="name"><br/>
     Photo URL: <input type="url" name="photo" id="photo"><br/>
@@ -15,6 +15,7 @@ Hello, {{full_name}}!
     Price per day: <input type="number" name="price_day" id="price_day"><br/>
     Price per week: <input type="number" name="price_week" id="price_week"><br/>
     Price per month: <input type="number" name="price_month" id="price_month"><br/>
+    Make this item available to rent: <input type="radio" name="available" id="available">
     <br/>
     <input type="submit" value="Add this item">
   </form>

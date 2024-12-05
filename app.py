@@ -1,5 +1,9 @@
 from functools import wraps
 
+from sqlalchemy import select
+
+from database import init_db, db_session
+import models
 from flask import Flask, request, render_template, redirect, session
 import sqlite3
 app = Flask(__name__)
@@ -65,19 +69,20 @@ def login_required(func):
             return redirect("/login")
         return func(*args, **kwargs)
     return wrapped
-
+# ------------------------------------------------------------------------------------------------
 @app.route('/')
 def hello_world():  # put application's code here
     return '<p>This is a test project</p>'
 @app.route('/login', methods = ['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        user_id = db_connector.select('user', {'login':request.form.get('login'),
-                                                                    'password':request.form.get('password')})
-        if user_id:
-            session['user_id'] = user_id[0]['id']
-            session['user_login'] = user_id[0]['login']
-            session['user_name'] = user_id[0]['full_name']
+        init_db()
+        query = select(models.User).where(models.User.login==request.form['login'])
+        user_data = db_session.execute(query).first()
+        if user_data:
+            session['user_id'] = user_data[0].id
+            session['user_login'] = user_data[0].login
+            session['user_name'] = user_data[0].full_name
         else:
             return redirect('/login')
         return 'You are logged in as: <b>' + session['user_login']+'</b>'
@@ -91,8 +96,11 @@ def register():
         return render_template("register.html")
 
     if request.method == 'POST':
-        form_data = request.form
-        db_connector.insert('user', form_data)
+        form_data = dict(request.form)
+        init_db()
+        user = models.User(**form_data)
+        db_session.add(user)
+        db_session.commit()
         return redirect('/login')
 
 @app.route('/logout', methods = ['GET', 'POST', 'DELETE'])
@@ -112,7 +120,9 @@ def profile():
         return "PUT"
 
     if request.method == 'GET':
-        full_name = db_connector.select('user', {'id':session["user_id"]})[0]['full_name']
+        init_db()
+        full_name = db_session.execute(select(models.User).where(models.User.login==session['user_login'])).scalar().full_name
+        # full_name = db_connector.select('user', {'id':session["user_id"]})[0]['full_name']
         return render_template('user.html', full_name=full_name)
 
 #@app.route('/profile/<user_id>', methods = ['GET', 'PUT', 'PATCH', 'DELETE'])
@@ -132,8 +142,10 @@ def profile(user_id):
 @login_required
 def favourites():
     if request.method == 'GET':
-        items = db_connector.select('favourites', {'user':session["user_id"]},
-                                    'item', {'item':'id'})
+        init_db()
+        items = list(db_session.execute(select(models.Favourites).where(models.Favourites.user==session["user_id"])).scalars())
+        # items = db_connector.select('favourites', {'user':session["user_id"]},
+        #                             'item', {'item':'id'})
         # with DbLocal('db.db') as db_cur:
         #      db_cur.execute('''SELECT * FROM favourites JOIN item ON favourites.item = item.id
         #                         WHERE favourites.user = ?''',
@@ -161,7 +173,9 @@ def favourite(favourite_id):
 @login_required
 def search_history():
     if request.method == 'GET':
-        search_list = db_connector.select('search_history', {'user':session["user_id"]})
+        init_db()
+        search_list = list(db_session.execute(select(models.Search_History).where(models.Search_History.id==session["user_id"])).scalars())
+        # search_list = db_connector.select('search_history', {'user':session["user_id"]})
         return render_template('user.html', lines=search_list)
     if request.method == "DELETE":
         return 'DELETE'
@@ -172,20 +186,28 @@ def items():
         if session.get('user_id') is None:
             return redirect('/login')
 
+        init_db()
         query_args = dict(request.form)
         query_args["owner"] = session["user_id"]
-        db_connector.insert('item', query_args)
+        new_item = models.Item(**query_args)
+        db_session.add(new_item)
+        db_session.commit()
         return redirect('/items')
 
     if request.method == 'GET':
-        items_to_show = db_connector.select('item')
+        init_db()
+        items_to_show = list(db_session.execute(select(models.Item, models.User).join(models.User)).scalars())
+        # items_to_show = list(db_session.execute(select(models.Item, models.User).join(models.User)).all())
+        # #db_connector.select('item')
         return render_template('items.html', items=items_to_show)
 
 
 @app.route('/items/<item_id>', methods = ['GET', 'PUT', 'DELETE'])
 def item(item_id):
     if request.method == 'GET':
-        our_item = db_connector.select('item', {'id':item_id})[0]
+        init_db()
+        our_item = list(db_session.execute(select(models.Item).where(models.Item.id==item_id)).scalar())
+        # our_item = db_connector.select('item', {'id':item_id})[0]
         return render_template('items.html', items=our_item)
 
     if request.method == 'PUT':
@@ -201,7 +223,9 @@ def item(item_id):
 @login_required
 def leasers():
     if request.method == 'GET':
-        leasers_list = db_connector.select('contract', None, 'user', {'leaser':'id'})
+        init_db()
+        leasers_list = list(db_session.execute(select(models.Contract, models.User).join(models.User)).scalars())
+        # leasers_list = db_connector.select('contract', None, 'user', {'leaser':'id'})
         return render_template('leasers.html', params=leasers_list)
 
 
@@ -215,6 +239,7 @@ def leaser(leaser_id):
 @login_required
 def contracts():
     if request.method == 'POST':
+        init_db()
         item = request.form['item']
         leaser = db_connector.select('item', {'id':item})[0]['owner']
         taker = session['user_id']
@@ -227,7 +252,9 @@ def contracts():
         return 'POST'
 
     if request.method == 'GET':
-        contract_list = db_connector.select('contract')
+        init_db()
+        contract_list = list(db_session.execute(select(models.Contract)).scalars())
+        # contract_list = db_connector.select('contract')
         return render_template('contracts.html', params=contract_list)
 
 
