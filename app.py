@@ -27,7 +27,7 @@ class DbLocal(object):
         self.con.close()
 
 class DbHandler(object):
-    db_file = 'db.db'
+    db_file = 'DB-old.db'
     def select(self, table_name, filter_dict=None, join_table=None, join_conditions=None):
         if filter_dict is None:
             filter_dict = {}
@@ -72,7 +72,8 @@ def login_required(func):
 # ------------------------------------------------------------------------------------------------
 @app.route('/')
 def hello_world():  # put application's code here
-    return '<p>This is a test project</p>'
+    return  render_template('index.html')
+    # return '<p>This is a test project</p>'
 @app.route('/login', methods = ['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -115,7 +116,7 @@ def logout():
 @login_required
 def profile():
     if request.method == 'PUT':
-        with DbLocal('db.db') as db_cur:
+        with DbLocal('DB-old.db') as db_cur:
             pass
         return "PUT"
 
