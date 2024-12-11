@@ -2,11 +2,6 @@ from datetime import datetime
 from multiprocessing import Process, Queue, cpu_count
 from concurrent.futures import ProcessPoolExecutor
 
-from click import pause
-
-
-# from queue import Queue
-
 def split_range(start, end, parts):
     step = (end - start + 1) // parts
     ranges = []
@@ -77,12 +72,7 @@ def variant2(number, calculation_function):
         for i in range_for_counting:
             executor.map(calculation_function, range(i[0], i[1]))
     return
-    #
-    # # Передаємо діапазони в executor
-    # with ProcessPoolExecutor(max_workers=physical_cores) as executor:
-    #     executor.map(lambda x: calculation_function(*x), range_for_counting)  # Розпаковуємо пари як аргументи
-    #
-    # return
+
 #-------------------------------------------------------------------------------------------------------------
 if __name__ == '__main__':
     number = 1000000 # 1000000000
