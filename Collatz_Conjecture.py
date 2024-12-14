@@ -75,22 +75,22 @@ def variant2(number, calculation_function):
 
 #-------------------------------------------------------------------------------------------------------------
 if __name__ == '__main__':
-    number = 1000000 # 1000000000
+    number = 10000000 # 1000000000
 
     # Please feel free to comment/uncomment the necessary parts of code below
     # calculation with 1 process, recursive  --------------------------------------
-    start_time = datetime.now()
-    recurs_calc_wrapper(1, number + 1)
-    end_time = datetime.now()
-    print(f"Time taken (1 process, recursive version): {end_time - start_time}")
-    print("---------------------------------------------------------------------")
-
-    # # calculation with 1 process, non-recursive  -----------------------------------
-    start_time = datetime.now()
-    nonrecurs_calc_wrapper(1, number + 1)
-    end_time = datetime.now()
-    print(f"Time taken (1 process, non-recursive version): {end_time - start_time}")
-    print("---------------------------------------------------------------------")
+    # start_time = datetime.now()
+    # recurs_calc_wrapper(1, number + 1)
+    # end_time = datetime.now()
+    # print(f"Time taken (1 process, recursive version): {end_time - start_time}")
+    # print("---------------------------------------------------------------------")
+    #
+    # # # calculation with 1 process, non-recursive  -----------------------------------
+    # start_time = datetime.now()
+    # nonrecurs_calc_wrapper(1, number + 1)
+    # end_time = datetime.now()
+    # print(f"Time taken (1 process, non-recursive version): {end_time - start_time}")
+    # print("---------------------------------------------------------------------")
 
     # calculation with many process, recursive  --------------------------------
     start_time = datetime.now()
