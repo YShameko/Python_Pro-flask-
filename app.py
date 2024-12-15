@@ -7,6 +7,8 @@ from database import init_db, db_session
 import models
 from flask import Flask, request, render_template, redirect, session
 import sqlite3
+import celery_tasks
+
 app = Flask(__name__)
 app.secret_key = 'sdhhjdsfjjihuyug87487bsdjb7843'
 
@@ -251,6 +253,7 @@ def contracts():
                             'status':status, 'taker':taker, 'leaser':leaser, 'item':item, 'contract_num':contract_num}
 
         db_connector.insert('contract', query_args)
+        celery_tasks.send_email(contract.id)
         return 'POST'
 
     if request.method == 'GET':
@@ -292,5 +295,10 @@ def compare():
     if request.method == "GET":
         return 'GET'
 
+@app.route('/add_task', methods = ['GET'])
+def set_task():
+    celery_tasks.add.delay(1,2)
+    return 'Task sent'
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8080)
+    app.run(debug=True, host='0.0.0.0', port=5000)
